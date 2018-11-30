@@ -25,9 +25,9 @@ namespace LloydsRegister.API.Contollers
             return Ok(maToReturn);
         }
 
-        [HttpPost()]
+        [HttpPost]
         public IActionResult CreateManagingAgent(
-            [FromBody] ManagingAgentForCreationDto managingAgent)
+            [FromBody] ManagingAgentCreateDto managingAgent)
         {
             if (managingAgent == null)
             {
@@ -59,6 +59,41 @@ namespace LloydsRegister.API.Contollers
             ManagingAgentDataStore.Current.ManagingAgents.Add(finalManagingAgent);
 
             return CreatedAtRoute("GetManagingAgent", new { agentCode = finalManagingAgent.AgentCode}, finalManagingAgent);
+        }
+
+        [HttpPut("{agentCode}")]
+        public IActionResult UpdateManagingAgent(string agentCode,
+            [FromBody] ManagingAgentUpdateDto managingAgent)
+        {
+            if (managingAgent == null)
+            {
+                return BadRequest();
+            }
+
+            if(agentCode == managingAgent.AgentName)
+            {
+                ModelState.AddModelError("agentName", "The provided Agent Name should not be the same as the Agent Code.");
+            }
+
+            if(managingAgent.AgentCode != null && managingAgent.AgentCode != agentCode)
+            {
+                ModelState.AddModelError("agentCode", "The Agent Code should not be changed.");
+            }
+
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            
+            var agent = ManagingAgentDataStore.Current.ManagingAgents.FirstOrDefault(ma => ma.AgentCode == agentCode);
+            if (agent == null)
+            {
+                return NotFound();
+            }
+
+            agent.AgentName = managingAgent.AgentName;
+
+            return NoContent();
         }
     }
 }
