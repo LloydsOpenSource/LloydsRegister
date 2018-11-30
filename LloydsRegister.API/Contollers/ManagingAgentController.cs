@@ -152,5 +152,20 @@ namespace LloydsRegister.API.Contollers
             return NoContent();
         }
 
+        [HttpDelete("{agentCode}")]
+        public IActionResult DeleteManagingAgent(string agentCode)
+        {
+            var agentFromStore = ManagingAgentDataStore.Current.ManagingAgents.FirstOrDefault(ma => ma.AgentCode == agentCode);
+            if (agentFromStore == null)
+            {
+                return NotFound();
+            }
+
+            ManagingAgentDataStore.Current.ManagingAgents.Remove(agentFromStore);
+
+            return NoContent();
+
+        }
+
     }
 }
