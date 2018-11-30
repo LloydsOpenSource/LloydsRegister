@@ -2,7 +2,7 @@
 {
     public class ManagingAgentDto
     {
-        public string Code { get; set; }
-        public string Name { get; set; }
+        public string AgentCode { get; set; }
+        public string AgentName { get; set; }
     }
 }

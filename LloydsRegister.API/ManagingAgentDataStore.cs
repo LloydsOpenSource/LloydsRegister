@@ -16,23 +16,23 @@ namespace LloydsRegister.API
             {
                 new ManagingAgentDto()
                 {
-                    Code = "0001A",
-                    Name = "MA01"
+                    AgentCode = "0001A",
+                    AgentName = "MA01"
                 },
                 new ManagingAgentDto()
                 {
-                    Code = "0002B",
-                    Name = "MA02"
+                    AgentCode = "0002B",
+                    AgentName = "MA02"
                 },
                 new ManagingAgentDto()
                 {
-                    Code = "0003C",
-                    Name = "MA03"
+                    AgentCode = "0003C",
+                    AgentName = "MA03"
                 },
                 new ManagingAgentDto()
                 {
-                    Code = "0004D",
-                    Name = "MA04"
+                    AgentCode = "0004D",
+                    AgentName = "MA04"
                 },
             };
         }
