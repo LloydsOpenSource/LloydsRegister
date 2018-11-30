@@ -1,5 +1,6 @@
 ﻿using System.Linq;
 using LloydsRegister.API.Models;
+using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
 
 namespace LloydsRegister.API.Contollers
@@ -95,5 +96,61 @@ namespace LloydsRegister.API.Contollers
 
             return NoContent();
         }
+
+        [HttpPatch("{agentCode}")]
+        public IActionResult PartiallyUpdateManagingAgent(string agentCode,
+            [FromBody] JsonPatchDocument<ManagingAgentUpdateDto> patchDoc)
+        {
+            if (patchDoc == null)
+            {
+                return BadRequest();
+            }
+
+            var agentFromStore = ManagingAgentDataStore.Current.ManagingAgents.FirstOrDefault(ma => ma.AgentCode == agentCode);
+            if (agentFromStore == null)
+            {
+                return NotFound();
+            }
+
+            var agentToPatch = new ManagingAgentUpdateDto()
+            {
+                AgentCode = agentFromStore.AgentCode,
+                AgentName = agentFromStore.AgentName
+            };
+
+            patchDoc.ApplyTo(agentToPatch, ModelState);
+
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            if(agentCode == agentToPatch.AgentName)
+            {
+                ModelState.AddModelError("agentName", "The provided Agent Name should not be the same as the Agent Code.");
+            }
+
+            if(agentToPatch.AgentCode != null && agentToPatch.AgentCode != agentCode)
+            {
+                ModelState.AddModelError("agentCode", "The Agent Code should not be changed.");
+            }
+
+            if(agentToPatch.AgentCode == null)
+            {
+                ModelState.AddModelError("agentCode", "The Agent Code should not be removed.");
+            }
+
+            TryValidateModel(agentToPatch);
+
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            agentFromStore.AgentName = agentToPatch.AgentName;
+
+            return NoContent();
+        }
+
     }
 }
