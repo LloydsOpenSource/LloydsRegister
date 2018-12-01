@@ -1,29 +1,56 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using LloydsRegister.API.Models;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 
 namespace LloydsRegister.API.Contollers
 {
     [Route("api/managingagents")]
     public class ManagingAgentController : Controller
     {
+
+        private ILogger<ManagingAgentController> _logger;
+
+        public ManagingAgentController(ILogger<ManagingAgentController> logger)
+        {
+            _logger = logger;
+        }
+
         [HttpGet]
         public IActionResult GetManagingAgents()
         {
-            return Ok(ManagingAgentDataStore.Current.ManagingAgents);
+            try
+            {
+                return Ok(ManagingAgentDataStore.Current.ManagingAgents);
+            }
+            catch (Exception e)
+            {
+                _logger.LogCritical("Exception while getting all Managing Agents.  Exception: {exception}", e);
+                return StatusCode(500, "A problem happed while handling your request.");
+            }
         }
 
         [HttpGet("{agentCode}", Name = "GetManagingAgent")]
         public IActionResult GetManagingAgent(string agentCode)
         {
-            var maToReturn = ManagingAgentDataStore.Current.ManagingAgents.FirstOrDefault(ma => ma.AgentCode == agentCode);
-            if (maToReturn == null)
+            try
             {
-                return NotFound();
-            }
+                var agentFromStore = ManagingAgentDataStore.Current.ManagingAgents.FirstOrDefault(ma => ma.AgentCode == agentCode);
+                if (agentFromStore == null)
+                {
+                    _logger.LogInformation("Managing Agent {agentCode} was not found when accessing Managing Agents.", agentCode);
+                    return NotFound();
+                }
 
-            return Ok(maToReturn);
+                return Ok(agentFromStore);
+            }
+            catch (Exception e)
+            {
+                _logger.LogCritical("Exception while getting Managing Agent with Agent Code {agentCode}.  Exception: {exception}", agentCode, e);
+                return StatusCode(500, "A problem happed while handling your request.");
+            }
         }
 
         [HttpPost]
@@ -32,6 +59,7 @@ namespace LloydsRegister.API.Contollers
         {
             if (managingAgent == null)
             {
+                _logger.LogInformation("Create Managing Agent called with a null body content.");
                 return BadRequest();
             }
 
@@ -48,6 +76,7 @@ namespace LloydsRegister.API.Contollers
             var agentCode = ManagingAgentDataStore.Current.ManagingAgents.Select(s => s.AgentCode).FirstOrDefault(ma => ma == managingAgent.AgentCode);
             if (agentCode != null)
             {
+                _logger.LogInformation("Create Managing Agent called with Agent Code {agentCode} which already exists.", agentCode);
                 return BadRequest();
             }
 
