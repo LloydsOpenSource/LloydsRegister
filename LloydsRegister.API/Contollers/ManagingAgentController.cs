@@ -40,7 +40,7 @@ namespace LloydsRegister.API.Contollers
                 var agentFromStore = ManagingAgentDataStore.Current.ManagingAgents.FirstOrDefault(ma => ma.AgentCode == agentCode);
                 if (agentFromStore == null)
                 {
-                    _logger.LogInformation("Managing Agent {agentCode} was not found when accessing Managing Agents.", agentCode);
+                    _logger.LogInformation("Managing Agent {agentCode} was not found when getting Managing Agents.", agentCode);
                     return NotFound();
                 }
 
@@ -70,6 +70,7 @@ namespace LloydsRegister.API.Contollers
 
             if (!ModelState.IsValid)
             {
+                _logger.LogInformation("Create Managing Agent called with an invalid model state.  Keys: {keys}, Model State: {@modelState}", ModelState.Keys, ModelState);
                 return BadRequest(ModelState);
             }
 
@@ -97,6 +98,7 @@ namespace LloydsRegister.API.Contollers
         {
             if (managingAgent == null)
             {
+                _logger.LogInformation("Update Managing Agent called with a null body content.");
                 return BadRequest();
             }
 
@@ -112,12 +114,14 @@ namespace LloydsRegister.API.Contollers
 
             if (!ModelState.IsValid)
             {
+                _logger.LogInformation("Create Managing Agent with Agent Code {agentCode} called with an invalid model state.  Keys: {keys}, Model State: {@modelState}", agentCode, ModelState.Keys, ModelState);
                 return BadRequest(ModelState);
             }
             
             var agent = ManagingAgentDataStore.Current.ManagingAgents.FirstOrDefault(ma => ma.AgentCode == agentCode);
             if (agent == null)
             {
+                _logger.LogInformation("Managing Agent {agentCode} was not found when updating Managing Agent.", agentCode);
                 return NotFound();
             }
 
@@ -132,12 +136,14 @@ namespace LloydsRegister.API.Contollers
         {
             if (patchDoc == null)
             {
+                _logger.LogInformation("Update Managing Agent called with a null body content.");
                 return BadRequest();
             }
 
             var agentFromStore = ManagingAgentDataStore.Current.ManagingAgents.FirstOrDefault(ma => ma.AgentCode == agentCode);
             if (agentFromStore == null)
             {
+                _logger.LogInformation("Managing Agent {agentCode} was not found when updating Managing Agent.", agentCode);
                 return NotFound();
             }
 
@@ -151,6 +157,7 @@ namespace LloydsRegister.API.Contollers
 
             if (!ModelState.IsValid)
             {
+                _logger.LogInformation("Create Managing Agent with Agent Code {agentCode} called with an invalid model state.  Keys: {keys}, Model State: {@modelState}", agentCode, ModelState.Keys, ModelState);
                 return BadRequest(ModelState);
             }
 
@@ -173,6 +180,7 @@ namespace LloydsRegister.API.Contollers
 
             if (!ModelState.IsValid)
             {
+                _logger.LogInformation("Create Managing Agent with Agent Code {agentCode} called with an invalid model state.  Keys: {keys}, Model State: {@modelState}", agentCode, ModelState.Keys, ModelState);
                 return BadRequest(ModelState);
             }
 
@@ -187,6 +195,7 @@ namespace LloydsRegister.API.Contollers
             var agentFromStore = ManagingAgentDataStore.Current.ManagingAgents.FirstOrDefault(ma => ma.AgentCode == agentCode);
             if (agentFromStore == null)
             {
+                _logger.LogInformation("Managing Agent {agentCode} was not found when deleting Managing Agent.", agentCode);
                 return NotFound();
             }
 
