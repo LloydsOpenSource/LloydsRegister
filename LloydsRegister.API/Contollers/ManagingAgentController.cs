@@ -27,8 +27,9 @@ namespace LloydsRegister.API.Contollers
             }
             catch (Exception e)
             {
-                _logger.LogCritical("Exception while getting all Managing Agents.  Exception: {exception}", e);
-                return StatusCode(500, "A problem happed while handling your request.");
+                var errorTrace = Guid.NewGuid();
+                _logger.LogCritical("Exception while getting all Managing Agents.  Error trace: {errorTrace}, Exception: {exception}", e);
+                return StatusCode(500, $"A problem happed while handling your request.  Error trace: {errorTrace}, Date and time: {DateTime.UtcNow}");
             }
         }
 
@@ -48,8 +49,9 @@ namespace LloydsRegister.API.Contollers
             }
             catch (Exception e)
             {
-                _logger.LogCritical("Exception while getting Managing Agent with Agent Code {agentCode}.  Exception: {exception}", agentCode, e);
-                return StatusCode(500, "A problem happed while handling your request.");
+                var errorTrace = Guid.NewGuid();
+                _logger.LogCritical("Exception while getting Managing Agent.  Error trace: {errorTrace}, Exception: {exception}", errorTrace, e);
+                return StatusCode(500, $"A problem happed while handling your request.  Error trace: {errorTrace}, Date and time: {DateTime.UtcNow}");
             }
         }
 
@@ -57,151 +59,188 @@ namespace LloydsRegister.API.Contollers
         public IActionResult CreateManagingAgent(
             [FromBody] ManagingAgentCreateDto managingAgent)
         {
-            if (managingAgent == null)
+            try
             {
-                _logger.LogInformation("Create Managing Agent called with a null body content.");
-                return BadRequest();
+                var validator = new ManagingAgentCreateDtoValidator();
+
+                if (managingAgent == null)
+                {
+                    _logger.LogInformation("{logName}: Create Managing Agent called with a null body content.", "Object Validation");
+                    return BadRequest();
+                }
+
+                var validationResult = validator.Validate(managingAgent);
+                if (!validationResult.IsValid)
+                {
+                    foreach(var failure in validationResult.Errors)
+                    {
+                        _logger.LogInformation("{logName}: Create Managing Agent failed with an invalid {object} of {attemptedValue}.  The error message was: {error}", "Object Validation", failure.PropertyName, failure.AttemptedValue, failure.ErrorMessage);
+                    }
+                    return BadRequest(validationResult);
+                }
+
+                var agentCode = ManagingAgentDataStore.Current.ManagingAgents.Select(s => s.AgentCode).FirstOrDefault(ma => ma == managingAgent.AgentCode);
+                if (agentCode != null)
+                {
+                    _logger.LogInformation("{logName}: Create Managing Agent called with {object} of {attemptedValue} which already exists.", "Object Validation", "AgentCode", agentCode);
+                    return BadRequest();
+                }
+
+                var finalManagingAgent = new ManagingAgentDto()
+                {
+                    AgentName = managingAgent.AgentName
+                };
+
+                ManagingAgentDataStore.Current.ManagingAgents.Add(finalManagingAgent);
+
+                return CreatedAtRoute("GetManagingAgent", new { agentCode = finalManagingAgent.AgentCode}, finalManagingAgent);
             }
-
-            if(managingAgent.AgentCode == managingAgent.AgentName)
+            catch (Exception e)
             {
-                ModelState.AddModelError("AgentName", "The provided Agent Name should not be the same as the Agent Code.");
+                var errorTrace = Guid.NewGuid();
+                _logger.LogCritical("Exception while creating a Managing Agent.  Error trace: {errorTrace}  Exception: {exception}", errorTrace, e);
+                return StatusCode(500, $"A problem happed while handling your request.  Error trace: {errorTrace}, Date and time: {DateTime.UtcNow}");
             }
-
-            if (!ModelState.IsValid)
-            {
-                _logger.LogInformation("Create Managing Agent called with an invalid model state.  Keys: {keys}, Model State: {@modelState}", ModelState.Keys, ModelState);
-                return BadRequest(ModelState);
-            }
-
-            var agentCode = ManagingAgentDataStore.Current.ManagingAgents.Select(s => s.AgentCode).FirstOrDefault(ma => ma == managingAgent.AgentCode);
-            if (agentCode != null)
-            {
-                _logger.LogInformation("Create Managing Agent called with Agent Code {agentCode} which already exists.", agentCode);
-                return BadRequest();
-            }
-
-            var finalManagingAgent = new ManagingAgentDto()
-            {
-                AgentCode = managingAgent.AgentCode,
-                AgentName = managingAgent.AgentName
-            };
-
-            ManagingAgentDataStore.Current.ManagingAgents.Add(finalManagingAgent);
-
-            return CreatedAtRoute("GetManagingAgent", new { agentCode = finalManagingAgent.AgentCode}, finalManagingAgent);
         }
 
         [HttpPut("{agentCode}")]
         public IActionResult UpdateManagingAgent(string agentCode,
             [FromBody] ManagingAgentUpdateDto managingAgent)
         {
-            if (managingAgent == null)
+            try
             {
-                _logger.LogInformation("Update Managing Agent called with a null body content.");
-                return BadRequest();
-            }
+                var validator = new ManagingAgentUpdateDtoValidator();
 
-            if(agentCode == managingAgent.AgentName)
+                if (managingAgent == null)
+                {
+                    _logger.LogInformation("Update Managing Agent called with a null body content.");
+                    return BadRequest();
+                }
+
+                managingAgent.AgentCodeParameter = agentCode;
+                var validationResult = validator.Validate(managingAgent);
+
+                if (!validationResult.IsValid)
+                {
+                    foreach(var failure in validationResult.Errors)
+                    {
+                        _logger.LogInformation("{logName}: Create Managing Agent failed with an invalid {object} of {attemptedValue}.  The error message was: {error}", "Object Validation", failure.PropertyName, failure.AttemptedValue, failure.ErrorMessage);
+                    }
+                    return BadRequest(validationResult);
+                }
+                
+                var agent = ManagingAgentDataStore.Current.ManagingAgents.FirstOrDefault(ma => ma.AgentCode == agentCode);
+                if (agent == null)
+                {
+                    _logger.LogInformation("Managing Agent {agentCode} was not found when updating Managing Agent.", agentCode);
+                    return NotFound();
+                }
+
+                agent.AgentName = managingAgent.AgentName;
+
+                return NoContent();
+
+            }
+            catch (Exception e)
             {
-                ModelState.AddModelError("agentName", "The provided Agent Name should not be the same as the Agent Code.");
+                var errorTrace = Guid.NewGuid();
+                _logger.LogCritical("Exception while updating a Managing Agent.  Error trace: {errorTrace}  Exception: {exception}", errorTrace, e);
+                return StatusCode(500, $"A problem happed while handling your request.  Error trace: {errorTrace}, Date and time: {DateTime.UtcNow}");
             }
-
-            if(managingAgent.AgentCode != null && managingAgent.AgentCode != agentCode)
-            {
-                ModelState.AddModelError("agentCode", "The Agent Code should not be changed.");
-            }
-
-            if (!ModelState.IsValid)
-            {
-                _logger.LogInformation("Create Managing Agent with Agent Code {agentCode} called with an invalid model state.  Keys: {keys}, Model State: {@modelState}", agentCode, ModelState.Keys, ModelState);
-                return BadRequest(ModelState);
-            }
-            
-            var agent = ManagingAgentDataStore.Current.ManagingAgents.FirstOrDefault(ma => ma.AgentCode == agentCode);
-            if (agent == null)
-            {
-                _logger.LogInformation("Managing Agent {agentCode} was not found when updating Managing Agent.", agentCode);
-                return NotFound();
-            }
-
-            agent.AgentName = managingAgent.AgentName;
-
-            return NoContent();
         }
 
         [HttpPatch("{agentCode}")]
         public IActionResult PartiallyUpdateManagingAgent(string agentCode,
             [FromBody] JsonPatchDocument<ManagingAgentUpdateDto> patchDoc)
         {
-            if (patchDoc == null)
+            try
             {
-                _logger.LogInformation("Update Managing Agent called with a null body content.");
-                return BadRequest();
+                if (patchDoc == null)
+                {
+                    _logger.LogInformation("Partial update of Managing Agent called with a null body content.");
+                    return BadRequest();
+                }
+
+                var agentFromStore = ManagingAgentDataStore.Current.ManagingAgents.FirstOrDefault(ma => ma.AgentCode == agentCode);
+                if (agentFromStore == null)
+                {
+                    _logger.LogInformation("Managing Agent {agentCode} was not found when partially updating Managing Agent.", agentCode);
+                    return NotFound();
+                }
+
+                var agentToPatch = new ManagingAgentUpdateDto()
+                {
+                    AgentCode = agentFromStore.AgentCode,
+                    AgentName = agentFromStore.AgentName
+                };
+
+                patchDoc.ApplyTo(agentToPatch, ModelState);
+
+                if (!ModelState.IsValid)
+                {
+                    _logger.LogInformation("Create Managing Agent with Agent Code {agentCode} called with an invalid model state.  Keys: {keys}, Model State: {@modelState}", agentCode, ModelState.Keys, ModelState);
+                    return BadRequest(ModelState);
+                }
+
+                if(agentCode == agentToPatch.AgentName)
+                {
+                    ModelState.AddModelError("agentName", "The provided Agent Name should not be the same as the Agent Code.");
+                }
+
+                if(agentToPatch.AgentCode != null && agentToPatch.AgentCode != agentCode)
+                {
+                    ModelState.AddModelError("agentCode", "The Agent Code should not be changed.");
+                }
+
+                if(agentToPatch.AgentCode == null)
+                {
+                    ModelState.AddModelError("agentCode", "The Agent Code should not be removed.");
+                }
+
+                TryValidateModel(agentToPatch);
+
+                if (!ModelState.IsValid)
+                {
+                    _logger.LogInformation("Create Managing Agent with Agent Code {agentCode} called with an invalid model state.  Keys: {keys}, Model State: {@modelState}", agentCode, ModelState.Keys, ModelState);
+                    return BadRequest(ModelState);
+                }
+
+                agentFromStore.AgentName = agentToPatch.AgentName;
+
+                return NoContent();
+
             }
-
-            var agentFromStore = ManagingAgentDataStore.Current.ManagingAgents.FirstOrDefault(ma => ma.AgentCode == agentCode);
-            if (agentFromStore == null)
+            catch (Exception e)
             {
-                _logger.LogInformation("Managing Agent {agentCode} was not found when updating Managing Agent.", agentCode);
-                return NotFound();
+                var errorTrace = Guid.NewGuid();
+                _logger.LogCritical("Exception while partially updating a Managing Agent.  Error trace: {errorTrace}  Exception: {exception}", errorTrace, e);
+                return StatusCode(500, $"A problem happed while handling your request.  Error trace: {errorTrace}, Date and time: {DateTime.UtcNow}");
             }
-
-            var agentToPatch = new ManagingAgentUpdateDto()
-            {
-                AgentCode = agentFromStore.AgentCode,
-                AgentName = agentFromStore.AgentName
-            };
-
-            patchDoc.ApplyTo(agentToPatch, ModelState);
-
-            if (!ModelState.IsValid)
-            {
-                _logger.LogInformation("Create Managing Agent with Agent Code {agentCode} called with an invalid model state.  Keys: {keys}, Model State: {@modelState}", agentCode, ModelState.Keys, ModelState);
-                return BadRequest(ModelState);
-            }
-
-            if(agentCode == agentToPatch.AgentName)
-            {
-                ModelState.AddModelError("agentName", "The provided Agent Name should not be the same as the Agent Code.");
-            }
-
-            if(agentToPatch.AgentCode != null && agentToPatch.AgentCode != agentCode)
-            {
-                ModelState.AddModelError("agentCode", "The Agent Code should not be changed.");
-            }
-
-            if(agentToPatch.AgentCode == null)
-            {
-                ModelState.AddModelError("agentCode", "The Agent Code should not be removed.");
-            }
-
-            TryValidateModel(agentToPatch);
-
-            if (!ModelState.IsValid)
-            {
-                _logger.LogInformation("Create Managing Agent with Agent Code {agentCode} called with an invalid model state.  Keys: {keys}, Model State: {@modelState}", agentCode, ModelState.Keys, ModelState);
-                return BadRequest(ModelState);
-            }
-
-            agentFromStore.AgentName = agentToPatch.AgentName;
-
-            return NoContent();
         }
 
         [HttpDelete("{agentCode}")]
         public IActionResult DeleteManagingAgent(string agentCode)
         {
-            var agentFromStore = ManagingAgentDataStore.Current.ManagingAgents.FirstOrDefault(ma => ma.AgentCode == agentCode);
-            if (agentFromStore == null)
+            try
             {
-                _logger.LogInformation("Managing Agent {agentCode} was not found when deleting Managing Agent.", agentCode);
-                return NotFound();
+                var agentFromStore = ManagingAgentDataStore.Current.ManagingAgents.FirstOrDefault(ma => ma.AgentCode == agentCode);
+                if (agentFromStore == null)
+                {
+                    _logger.LogInformation("Managing Agent {agentCode} was not found when deleting Managing Agent.", agentCode);
+                    return NotFound();
+                }
+
+                ManagingAgentDataStore.Current.ManagingAgents.Remove(agentFromStore);
+
+                return NoContent();
+
             }
-
-            ManagingAgentDataStore.Current.ManagingAgents.Remove(agentFromStore);
-
-            return NoContent();
+            catch (Exception e)
+            {
+                var errorTrace = Guid.NewGuid();
+                _logger.LogCritical("Exception while partially updating a Managing Agent.  Error trace: {errorTrace}  Exception: {exception}", errorTrace, e);
+                return StatusCode(500, $"A problem happed while handling your request.  Error trace: {errorTrace}, Date and time: {DateTime.UtcNow}");
+            }
 
         }
 
