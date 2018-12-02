@@ -124,7 +124,7 @@ namespace LloydsRegister.API.Contollers
                 {
                     foreach(var failure in validationResult.Errors)
                     {
-                        _logger.LogInformation("{logName}: Create Managing Agent failed with an invalid {object} of {attemptedValue}.  The error message was: {error}", "Object Validation", failure.PropertyName, failure.AttemptedValue, failure.ErrorMessage);
+                        _logger.LogInformation("{logName}: Update Managing Agent failed with an invalid {object} of {attemptedValue}.  The error message was: {error}", "Object Validation", failure.PropertyName, failure.AttemptedValue, failure.ErrorMessage);
                     }
                     return BadRequest(validationResult);
                 }
@@ -155,6 +155,8 @@ namespace LloydsRegister.API.Contollers
         {
             try
             {
+                var validator = new ManagingAgentUpdateDtoValidator();
+
                 if (patchDoc == null)
                 {
                     _logger.LogInformation("Partial update of Managing Agent called with a null body content.");
@@ -171,38 +173,27 @@ namespace LloydsRegister.API.Contollers
                 var agentToPatch = new ManagingAgentUpdateDto()
                 {
                     AgentCode = agentFromStore.AgentCode,
-                    AgentName = agentFromStore.AgentName
+                    AgentName = agentFromStore.AgentName,
+                    AgentCodeParameter = agentCode
                 };
 
                 patchDoc.ApplyTo(agentToPatch, ModelState);
 
                 if (!ModelState.IsValid)
                 {
-                    _logger.LogInformation("Create Managing Agent with Agent Code {agentCode} called with an invalid model state.  Keys: {keys}, Model State: {@modelState}", agentCode, ModelState.Keys, ModelState);
+                    _logger.LogInformation("Partial update of Managing Agent with Agent Code {agentCode} called with an invalid model state.  Keys: {keys}, Model State: {@modelState}", agentCode, ModelState.Keys, ModelState);
                     return BadRequest(ModelState);
                 }
 
-                if(agentCode == agentToPatch.AgentName)
-                {
-                    ModelState.AddModelError("agentName", "The provided Agent Name should not be the same as the Agent Code.");
-                }
+                var validationResult = validator.Validate(agentToPatch);
 
-                if(agentToPatch.AgentCode != null && agentToPatch.AgentCode != agentCode)
+                if (!validationResult.IsValid)
                 {
-                    ModelState.AddModelError("agentCode", "The Agent Code should not be changed.");
-                }
-
-                if(agentToPatch.AgentCode == null)
-                {
-                    ModelState.AddModelError("agentCode", "The Agent Code should not be removed.");
-                }
-
-                TryValidateModel(agentToPatch);
-
-                if (!ModelState.IsValid)
-                {
-                    _logger.LogInformation("Create Managing Agent with Agent Code {agentCode} called with an invalid model state.  Keys: {keys}, Model State: {@modelState}", agentCode, ModelState.Keys, ModelState);
-                    return BadRequest(ModelState);
+                    foreach(var failure in validationResult.Errors)
+                    {
+                        _logger.LogInformation("{logName}: Partial update of Managing Agent failed with an invalid {object} of {attemptedValue}.  The error message was: {error}", "Object Validation", failure.PropertyName, failure.AttemptedValue, failure.ErrorMessage);
+                    }
+                    return BadRequest(validationResult);
                 }
 
                 agentFromStore.AgentName = agentToPatch.AgentName;
