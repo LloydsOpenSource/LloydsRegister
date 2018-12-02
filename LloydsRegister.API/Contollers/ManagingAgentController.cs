@@ -88,6 +88,7 @@ namespace LloydsRegister.API.Contollers
 
                 var finalManagingAgent = new ManagingAgentDto()
                 {
+                    AgentCode = managingAgent.AgentCode,
                     AgentName = managingAgent.AgentName
                 };
 
