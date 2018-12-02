@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Linq;
+using System.Threading.Tasks;
+using LloydsRegister.API.Entities;
 using LloydsRegister.API.Models;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
@@ -11,11 +13,13 @@ namespace LloydsRegister.API.Contollers
     public class ManagingAgentController : Controller
     {
 
-        private ILogger<ManagingAgentController> _logger;
+        private readonly ILogger<ManagingAgentController> _logger;
+        private ICosmosDbContext _db;
 
-        public ManagingAgentController(ILogger<ManagingAgentController> logger)
+        public ManagingAgentController(ILogger<ManagingAgentController> logger, ICosmosDbContext db)
         {
             _logger = logger;
+            _db = db;
         }
 
         [HttpGet]
@@ -23,7 +27,7 @@ namespace LloydsRegister.API.Contollers
         {
             try
             {
-                return Ok(ManagingAgentDataStore.Current.ManagingAgents);
+                return Ok(_db.ManagingAgents());
             }
             catch (Exception e)
             {
@@ -38,7 +42,7 @@ namespace LloydsRegister.API.Contollers
         {
             try
             {
-                var agentFromStore = ManagingAgentDataStore.Current.ManagingAgents.FirstOrDefault(ma => ma.AgentCode == agentCode);
+                var agentFromStore = _db.ManagingAgents().Where(ma => ma.AgentCode == agentCode).ToArray().FirstOrDefault();
                 if (agentFromStore == null)
                 {
                     _logger.LogInformation("Managing Agent {agentCode} was not found when getting Managing Agents.", agentCode);
@@ -56,7 +60,7 @@ namespace LloydsRegister.API.Contollers
         }
 
         [HttpPost]
-        public IActionResult CreateManagingAgent(
+        public async Task<IActionResult> CreateManagingAgent(
             [FromBody] ManagingAgentCreateDto managingAgent)
         {
             try
@@ -79,10 +83,10 @@ namespace LloydsRegister.API.Contollers
                     return BadRequest(validationResult);
                 }
 
-                var agentCode = ManagingAgentDataStore.Current.ManagingAgents.Select(s => s.AgentCode).FirstOrDefault(ma => ma == managingAgent.AgentCode);
-                if (agentCode != null)
+                var agentFromStore = _db.ManagingAgents().Where(ma => ma.AgentCode == managingAgent.AgentCode).ToArray().FirstOrDefault();
+                if (agentFromStore != null)
                 {
-                    _logger.LogInformation("{logName}: Create Managing Agent called with {object} of {attemptedValue} which already exists.", "Object Validation", "AgentCode", agentCode);
+                    _logger.LogInformation("{logName}: Create Managing Agent called with {object} of {attemptedValue} which already exists.", "Object Validation", "AgentCode", agentFromStore);
                     return BadRequest();
                 }
 
@@ -92,7 +96,7 @@ namespace LloydsRegister.API.Contollers
                     AgentName = managingAgent.AgentName
                 };
 
-                ManagingAgentDataStore.Current.ManagingAgents.Add(finalManagingAgent);
+                await _db.CreateDocumentAsync(finalManagingAgent);
 
                 return CreatedAtRoute("GetManagingAgent", new { agentCode = finalManagingAgent.AgentCode}, finalManagingAgent);
             }
@@ -105,7 +109,7 @@ namespace LloydsRegister.API.Contollers
         }
 
         [HttpPut("{agentCode}")]
-        public IActionResult UpdateManagingAgent(string agentCode,
+        public async Task<IActionResult> UpdateManagingAgent(string agentCode,
             [FromBody] ManagingAgentUpdateDto managingAgent)
         {
             try
@@ -130,14 +134,20 @@ namespace LloydsRegister.API.Contollers
                     return BadRequest(validationResult);
                 }
                 
-                var agent = ManagingAgentDataStore.Current.ManagingAgents.FirstOrDefault(ma => ma.AgentCode == agentCode);
-                if (agent == null)
+                var agentFromStore = _db.ManagingAgents().Where(ma => ma.AgentCode == agentCode).ToArray().FirstOrDefault();
+                if (agentFromStore == null)
                 {
                     _logger.LogInformation("Managing Agent {agentCode} was not found when updating Managing Agent.", agentCode);
                     return NotFound();
                 }
 
-                agent.AgentName = managingAgent.AgentName;
+                var finalManagingAgent = new ManagingAgentDto()
+                {
+                    AgentCode = agentFromStore.AgentCode,
+                    AgentName = managingAgent.AgentName
+                };
+
+                await _db.ReplaceDocumentAsync(finalManagingAgent);
 
                 return NoContent();
 
@@ -151,7 +161,7 @@ namespace LloydsRegister.API.Contollers
         }
 
         [HttpPatch("{agentCode}")]
-        public IActionResult PartiallyUpdateManagingAgent(string agentCode,
+        public async Task<IActionResult> PartiallyUpdateManagingAgent(string agentCode,
             [FromBody] JsonPatchDocument<ManagingAgentUpdateDto> patchDoc)
         {
             try
@@ -164,7 +174,7 @@ namespace LloydsRegister.API.Contollers
                     return BadRequest();
                 }
 
-                var agentFromStore = ManagingAgentDataStore.Current.ManagingAgents.FirstOrDefault(ma => ma.AgentCode == agentCode);
+                var agentFromStore = _db.ManagingAgents().Where(ma => ma.AgentCode == agentCode).ToArray().FirstOrDefault();
                 if (agentFromStore == null)
                 {
                     _logger.LogInformation("Managing Agent {agentCode} was not found when partially updating Managing Agent.", agentCode);
@@ -197,7 +207,13 @@ namespace LloydsRegister.API.Contollers
                     return BadRequest(validationResult);
                 }
 
-                agentFromStore.AgentName = agentToPatch.AgentName;
+                var finalManagingAgent = new ManagingAgentDto()
+                {
+                    AgentCode = agentFromStore.AgentCode,
+                    AgentName = agentToPatch.AgentName
+                };
+
+                await _db.ReplaceDocumentAsync(finalManagingAgent);
 
                 return NoContent();
 
@@ -211,18 +227,18 @@ namespace LloydsRegister.API.Contollers
         }
 
         [HttpDelete("{agentCode}")]
-        public IActionResult DeleteManagingAgent(string agentCode)
+        public async Task<IActionResult> DeleteManagingAgent(string agentCode)
         {
             try
             {
-                var agentFromStore = ManagingAgentDataStore.Current.ManagingAgents.FirstOrDefault(ma => ma.AgentCode == agentCode);
+                var agentFromStore = _db.ManagingAgents().Where(ma => ma.AgentCode == agentCode).ToArray().FirstOrDefault();
                 if (agentFromStore == null)
                 {
                     _logger.LogInformation("Managing Agent {agentCode} was not found when deleting Managing Agent.", agentCode);
                     return NotFound();
                 }
 
-                ManagingAgentDataStore.Current.ManagingAgents.Remove(agentFromStore);
+                await _db.DeleteDocumentAsync(agentFromStore);
 
                 return NoContent();
 
